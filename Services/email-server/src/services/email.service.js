@@ -1,4 +1,3 @@
-const httpStatus = require('http-status');
 const { v4: uuid } = require('uuid');
 const userServiceClient = require('../clients/userServiceClient');
 const templateServiceClient = require('../clients/templateServiceClient');
@@ -26,7 +25,7 @@ const fetchUserProfile = async (userId) => {
 
     throw new ApplicationError(
       'Failed to retrieve user profile',
-      httpStatus.BAD_GATEWAY,
+      502,
       'USER_SERVICE_UNAVAILABLE',
       { userId, error: error.message },
     );
@@ -53,7 +52,7 @@ const renderTemplate = async (templateId, variables, language) => {
 
     throw new ApplicationError(
       'Failed to render template',
-      httpStatus.BAD_GATEWAY,
+      502,
       'TEMPLATE_SERVICE_UNAVAILABLE',
       { templateId, error: error.message },
     );
@@ -64,7 +63,7 @@ const buildEmailPayload = ({ user, notification }) => {
   if (!user.email || user.preferences?.email_notifications === false || user.is_active === false) {
     throw new ApplicationError(
       'Email notifications disabled for user',
-      httpStatus.ACCEPTED,
+      202,
       'EMAIL_NOT_ENABLED',
       { user_id: user.user_id },
     );
@@ -120,7 +119,7 @@ const sendEmailNotification = async (notification) => {
   if (!subject || !html) {
     throw new ApplicationError(
       'Email subject and body are required',
-      httpStatus.BAD_REQUEST,
+      400,
       'EMAIL_CONTENT_MISSING',
       { notification_id: notification.notification_id },
     );

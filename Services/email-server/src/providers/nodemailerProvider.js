@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const config = require('../config');
 const buildLogger = require('../utils/logger');
+const { ApplicationError } = require('../utils/errors');
 
 const logger = buildLogger('email-provider');
 
@@ -32,21 +33,44 @@ const sendEmail = async ({
   headers,
 }) => {
   const mailer = getTransporter();
-  const result = await mailer.sendMail({
-    from: config.email.default_from,
-    to,
-    subject,
-    html,
-    text,
-    headers,
-  });
 
-  logger.info('Email dispatched', {
-    message_id: result.messageId,
-    to,
-  });
+  try {
+    const result = await mailer.sendMail({
+      from: config.email.default_from,
+      to,
+      subject,
+      html,
+      text,
+      headers,
+    });
 
-  return result;
+    logger.info('Email dispatched', {
+      message_id: result.messageId,
+      to,
+    });
+
+    return result;
+  } catch (error) {
+    logger.error('Failed to send email via provider', {
+      to,
+      code: error.code,
+      response: error.response?.toString?.(),
+      command: error.command,
+      message: error.message,
+    });
+
+    throw new ApplicationError(
+      'Failed to dispatch email through provider',
+      502,
+      'EMAIL_PROVIDER_ERROR',
+      {
+        code: error.code,
+        command: error.command,
+        response: error.response,
+        message: error.message,
+      },
+    );
+  }
 };
 
 module.exports = {

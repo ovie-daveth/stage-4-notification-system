@@ -1,4 +1,3 @@
-const httpStatus = require('http-status');
 const { isCelebrateError } = require('celebrate');
 const { ApplicationError } = require('../utils/errors');
 const { buildResponse, defaultPaginationMeta } = require('../utils/response');
@@ -15,13 +14,13 @@ const notFoundHandler = (req, res) =>
 
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (error, req, res, next) => {
-  let statusCode = httpStatus.INTERNAL_SERVER_ERROR;
+  let statusCode = 500;
   let message = 'Something went wrong';
   let errorCode = 'INTERNAL_SERVER_ERROR';
   let details = null;
 
   if (isCelebrateError(error)) {
-    statusCode = httpStatus.BAD_REQUEST;
+    statusCode = 400;
     message = 'Validation failed';
     errorCode = 'VALIDATION_ERROR';
     details = {};
@@ -36,9 +35,7 @@ const errorHandler = (error, req, res, next) => {
     details = error.details;
   }
 
-  const safeStatusCode = Number.isInteger(statusCode)
-    ? statusCode
-    : httpStatus.INTERNAL_SERVER_ERROR;
+  const safeStatusCode = Number.isInteger(statusCode) ? statusCode : 500;
 
   return res.status(safeStatusCode).json(
     buildResponse({

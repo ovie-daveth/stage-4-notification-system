@@ -2,7 +2,6 @@ const admin = require('firebase-admin');
 const config = require('../config');
 const buildLogger = require('../utils/logger');
 const { ApplicationError } = require('../utils/errors');
-const httpStatus = require('http-status');
 
 const logger = buildLogger('fcm-provider');
 
@@ -40,7 +39,7 @@ const sendPush = async ({
   if (!tokens || tokens.length === 0) {
     throw new ApplicationError(
       'No push tokens provided',
-      httpStatus.BAD_REQUEST,
+      400,
       'PUSH_TOKENS_MISSING',
     );
   }

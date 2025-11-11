@@ -1,4 +1,3 @@
-const httpStatus = require('http-status');
 const { v4: uuid } = require('uuid');
 const userServiceClient = require('../clients/userServiceClient');
 const templateServiceClient = require('../clients/templateServiceClient');
@@ -26,7 +25,7 @@ const fetchUserProfile = async (userId) => {
 
     throw new ApplicationError(
       'Failed to retrieve user profile',
-      httpStatus.BAD_GATEWAY,
+      502,
       'USER_SERVICE_UNAVAILABLE',
       { userId, error: error.message },
     );
@@ -53,7 +52,7 @@ const renderTemplate = async (templateId, variables, language) => {
 
     throw new ApplicationError(
       'Failed to render template',
-      httpStatus.BAD_GATEWAY,
+      502,
       'TEMPLATE_SERVICE_UNAVAILABLE',
       { templateId, error: error.message },
     );
@@ -106,7 +105,7 @@ const sendPushNotification = async (notification) => {
   if (!user || user.is_active === false || user.preferences?.push_notifications === false) {
     throw new ApplicationError(
       'Push notifications disabled for user',
-      httpStatus.ACCEPTED,
+      202,
       'PUSH_NOT_ENABLED',
       { user_id: notification.user_id },
     );
@@ -115,7 +114,7 @@ const sendPushNotification = async (notification) => {
   if (!user.push_tokens || user.push_tokens.length === 0) {
     throw new ApplicationError(
       'User has no push tokens',
-      httpStatus.ACCEPTED,
+      202,
       'PUSH_TOKENS_MISSING',
       { user_id: notification.user_id },
     );
@@ -124,7 +123,7 @@ const sendPushNotification = async (notification) => {
   if (shouldRespectQuietHours(user.preferences)) {
     throw new ApplicationError(
       'Notification falls within quiet hours',
-      httpStatus.ACCEPTED,
+      202,
       'QUIET_HOURS_ACTIVE',
       { user_id: notification.user_id },
     );
@@ -154,7 +153,7 @@ const sendPushNotification = async (notification) => {
   if (!title || !body) {
     throw new ApplicationError(
       'Push title and body are required',
-      httpStatus.BAD_REQUEST,
+      400,
       'PUSH_CONTENT_MISSING',
       { notification_id: notification.notification_id },
     );

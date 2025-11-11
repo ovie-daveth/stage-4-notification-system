@@ -87,6 +87,8 @@ Dev tooling: ESLint 9 (`eslint`, `@eslint/js`) and Nodemon.
 | POST | `/api/v1/email/test-send` | Sends a synthetic email for smoke testing |
 | POST | `/api/v1/email/webhook/:provider` | Hook for provider callbacks (stub) |
 
+Interactive OpenAPI docs are served at `/docs`.
+
 Common response envelope:
 ```json
 {

@@ -89,6 +89,8 @@ Provide either `FIREBASE_SERVICE_ACCOUNT_JSON` **or** `FIREBASE_SERVICE_ACCOUNT_
 | POST | `/api/v1/push/test-send` | Sends a single-token test push via FCM |
 | POST | `/api/v1/push/webhook/:provider` | Provider webhook placeholder (extend per provider) |
 
+Interactive OpenAPI docs are served at `/docs`.
+
 **Test Send Request**
 ```json
 {

@@ -7,6 +7,7 @@ const routes = require('./routes');
 const config = require('./config');
 const buildLogger = require('./utils/logger');
 const { notFoundHandler, errorHandler } = require('./middlewares/error.middleware');
+const setupSwagger = require('./docs/swagger');
 
 const app = express();
 const logger = buildLogger('http');
@@ -33,6 +34,7 @@ app.use(
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+setupSwagger(app);
 app.use(routes);
 
 app.use(errors());
