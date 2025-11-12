@@ -1,6 +1,6 @@
 # Docker Setup for Notification Services
 
-This directory contains Docker Compose configuration for running the notification services (email-server and push-server) along with RabbitMQ.
+This directory contains Docker Compose configuration for running the notification services (user-server, email-server, push-server, and template-server) along with RabbitMQ, MongoDB, and PostgreSQL.
 
 ## Prerequisites
 
@@ -38,7 +38,8 @@ This directory contains Docker Compose configuration for running the notificatio
    Edit `.env` and update the following:
    - `SMTP_USERNAME` and `SMTP_PASSWORD` for email service
    - `FIREBASE_SERVICE_ACCOUNT_JSON` or `FIREBASE_SERVICE_ACCOUNT_PATH` for push service
-   - Service URLs if running user-server and template-server separately
+   - `JWT_SECRET` for user service (change in production)
+   - Service URLs if running template-server separately
 
 3. **Start all services:**
    ```bash
@@ -51,8 +52,12 @@ This directory contains Docker Compose configuration for running the notificatio
    docker-compose logs -f
    
    # Specific service
+   docker-compose logs -f user-server
    docker-compose logs -f email-server
    docker-compose logs -f push-server
+   docker-compose logs -f template-server
+   docker-compose logs -f mongodb
+   docker-compose logs -f postgresql
    ```
 
 5. **Stop all services:**
@@ -72,6 +77,27 @@ This directory contains Docker Compose configuration for running the notificatio
 - **Management UI:** http://localhost:15672
 - **Default Credentials:** admin / admin123
 - **Health Check:** Enabled
+- **Persistent Volume:** rabbitmq_data
+
+### MongoDB
+- **Port:** 27017
+- **Health Check:** Enabled
+- **Database:** notification_system
+- **Persistent Volume:** mongodb_data
+
+### PostgreSQL
+- **Port:** 5432
+- **Health Check:** Enabled
+- **Database:** template_service
+- **Default Credentials:** postgres / postgres
+- **Persistent Volume:** postgresql_data
+
+### User Server
+- **Port:** 4001
+- **API:** http://localhost:4001
+- **Health Check:** http://localhost:4001/health
+- **Depends on:** MongoDB
+- **Features:** User management, authentication, push token management
 
 ### Email Server
 - **Port:** 4002
@@ -87,7 +113,22 @@ This directory contains Docker Compose configuration for running the notificatio
 - **Health Check:** http://localhost:4004/health
 - **Depends on:** RabbitMQ, User Service, Template Service
 
+### Template Server
+- **Port:** 4003
+- **API:** http://localhost:4003
+- **Swagger Docs:** http://localhost:4003/docs (if configured)
+- **Health Check:** http://localhost:4003/health
+- **Depends on:** PostgreSQL
+- **Features:** Template management, template rendering
+
 ## Environment Variables
+
+### User Service
+- `MONGODB_URI` - MongoDB connection string (default: mongodb://mongodb:27017/notification_system)
+- `JWT_SECRET` - JWT secret key for token signing (default: change_this_secret_in_production)
+- `JWT_EXPIRES_IN` - JWT token expiration time (default: 7d)
+- `PORT` - Service port (default: 4001)
+- `CORS_ORIGIN` - CORS allowed origin (default: http://localhost:3000)
 
 ### Email Service
 - `SMTP_HOST` - SMTP server host (default: smtp.gmail.com)
@@ -102,11 +143,19 @@ This directory contains Docker Compose configuration for running the notificatio
 - `FIREBASE_SERVICE_ACCOUNT_PATH` - Path to Firebase service account file (alternative to JSON)
 - `FIREBASE_PROJECT_ID` - Firebase project ID (optional, uses credential project_id if not set)
 
+### Template Service
+- `DATABASE_URL` - PostgreSQL connection string (default: postgresql+asyncpg://postgres:postgres@postgresql:5432/template_service)
+- `PORT` - Service port (default: 4003)
+- `ENV` - Environment (default: production)
+
 ### Common
 - `RABBITMQ_URI` - RabbitMQ connection string (automatically set in docker-compose)
 - `USER_SERVICE_URL` - User service endpoint (default: http://user-server:4001/api/v1)
 - `TEMPLATE_SERVICE_URL` - Template service endpoint (default: http://template-server:4003/api/v1)
 - `CORS_ORIGIN` - CORS allowed origin (default: http://localhost:3000)
+- `POSTGRES_USER` - PostgreSQL username (default: postgres)
+- `POSTGRES_PASSWORD` - PostgreSQL password (default: postgres)
+- `POSTGRES_DB` - PostgreSQL database name (default: template_service)
 
 ## Building Images
 
@@ -117,8 +166,10 @@ To rebuild the images:
 docker-compose build
 
 # Build specific service
+docker-compose build user-server
 docker-compose build email-server
 docker-compose build push-server
+docker-compose build template-server
 
 # Build without cache
 docker-compose build --no-cache
@@ -131,7 +182,7 @@ For development with hot reload, you can mount the source code as volumes:
 ```yaml
 # Add to docker-compose.yml under each service:
 volumes:
-  - ../Services/email-server:/app
+  - ../Services/user-server:/app
   - /app/node_modules
 ```
 
@@ -140,9 +191,11 @@ Then run with `nodemon` instead of `node` by overriding the CMD in docker-compos
 ## Troubleshooting
 
 ### Services won't start
-- Check if ports are already in use: `netstat -an | findstr "4002 4004 5672 15672"`
-- Ensure RabbitMQ is healthy: `docker-compose ps`
-- Check logs: `docker-compose logs rabbitmq`
+- Check if ports are already in use: `netstat -an | findstr "4001 4002 4003 4004 5432 5672 15672 27017"`
+- Ensure RabbitMQ, MongoDB, and PostgreSQL are healthy: `docker-compose ps`
+- Check logs: `docker-compose logs rabbitmq` or `docker-compose logs mongodb` or `docker-compose logs postgresql`
+- Verify user-server is healthy before email-server and push-server start
+- Verify template-server is healthy before email-server and push-server start
 
 ### Email service fails to connect to SMTP
 - Verify SMTP credentials in `.env`
@@ -155,23 +208,49 @@ Then run with `nodemon` instead of `node` by overriding the CMD in docker-compos
 - Ensure the service account has Firebase Cloud Messaging permissions
 - Check logs: `docker-compose logs push-server`
 
+### User service fails to connect to MongoDB
+- Wait for MongoDB to be healthy (check health status)
+- Verify MongoDB URI in docker-compose.yml: `mongodb://mongodb:27017/notification_system`
+- Check network connectivity: `docker-compose exec user-server ping mongodb`
+- Check logs: `docker-compose logs mongodb`
+
+### Template service fails to connect to PostgreSQL
+- Wait for PostgreSQL to be healthy (check health status)
+- Verify DATABASE_URL in docker-compose.yml: `postgresql+asyncpg://postgres:postgres@postgresql:5432/template_service`
+- Check network connectivity: `docker-compose exec template-server ping postgresql`
+- Check logs: `docker-compose logs postgresql`
+
 ### Services can't connect to RabbitMQ
 - Wait for RabbitMQ to be healthy (check health status)
 - Verify RabbitMQ credentials match in docker-compose.yml
 - Check network connectivity: `docker-compose exec email-server ping rabbitmq`
 
+### Services can't connect to User Service
+- Wait for user-server to be healthy (check health status)
+- Verify USER_SERVICE_URL is correct: `http://user-server:4001/api/v1`
+- Check network connectivity: `docker-compose exec email-server ping user-server`
+- Check logs: `docker-compose logs user-server`
+
+### Services can't connect to Template Service
+- Wait for template-server to be healthy (check health status)
+- Verify TEMPLATE_SERVICE_URL is correct: `http://template-server:4003/api/v1`
+- Check network connectivity: `docker-compose exec email-server ping template-server`
+- Check logs: `docker-compose logs template-server`
+
 ## Production Considerations
 
 1. **Security:**
    - Change RabbitMQ default credentials
+   - Change JWT_SECRET to a strong random value
    - Use Docker secrets for sensitive environment variables
-   - Enable TLS for RabbitMQ
+   - Enable TLS for RabbitMQ and MongoDB
    - Use secure SMTP connections (TLS/SSL)
 
 2. **Performance:**
    - Adjust `RABBITMQ_PREFETCH` based on workload
    - Configure resource limits in docker-compose.yml
    - Use multi-stage builds for smaller images
+   - Configure MongoDB indexes for better query performance
 
 3. **Monitoring:**
    - Add logging aggregation (ELK, Loki, etc.)
@@ -182,6 +261,7 @@ Then run with `nodemon` instead of `node` by overriding the CMD in docker-compos
    - Run multiple instances of email-server and push-server
    - Use a load balancer for HTTP endpoints
    - Configure RabbitMQ clustering for high availability
+   - Configure MongoDB replica set for high availability
 
 ## Network
 
@@ -190,13 +270,22 @@ All services are connected to the `notification-network` bridge network, allowin
 ## Volumes
 
 - `rabbitmq_data` - Persistent storage for RabbitMQ data and queues
+- `mongodb_data` - Persistent storage for MongoDB database
+- `postgresql_data` - Persistent storage for PostgreSQL database
 
 ## Health Checks
 
 All services include health checks:
 - RabbitMQ: Uses `rabbitmq-diagnostics ping`
+- MongoDB: Uses `mongosh` to ping database
+- PostgreSQL: Uses `pg_isready` to check database readiness
+- User Server: HTTP GET /health
 - Email Server: HTTP GET /health
 - Push Server: HTTP GET /health
+- Template Server: HTTP GET /health
 
-Services wait for RabbitMQ to be healthy before starting.
-
+Service startup order:
+1. RabbitMQ, MongoDB, and PostgreSQL start first
+2. User Server starts after MongoDB is healthy
+3. Template Server starts after PostgreSQL is healthy
+4. Email Server and Push Server start after RabbitMQ is healthy, User Server has started, and Template Server has started

@@ -20,6 +20,83 @@ services:
     networks:
       - notification-network
 
+  mongodb:
+    image: mongo:7.0
+    container_name: notification-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: notification_system
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - notification-network
+
+  postgresql:
+    image: postgres:16-alpine
+    container_name: notification-postgresql
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-template_service}
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - notification-network
+
+  user-server:
+    build:
+      context: ../Services/user-server
+      dockerfile: Dockerfile
+    container_name: notification-user-server
+    ports:
+      - "4001:4001"
+    environment:
+      NODE_ENV: production
+      PORT: 4001
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/notification_system}
+      JWT_SECRET: ${JWT_SECRET:-change_this_secret_in_production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - notification-network
+    restart: unless-stopped
+
+  template-server:
+    build:
+      context: ../Services/template-server
+      dockerfile: Dockerfile
+    container_name: notification-template-server
+    ports:
+      - "4003:4003"
+    environment:
+      ENV: production
+      PORT: 4003
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgresql:5432/template_service}
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      - notification-network
+    restart: unless-stopped
+
   email-server:
     build:
       context: ../Services/email-server
@@ -50,6 +127,10 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      user-server:
+        condition: service_started
+      template-server:
+        condition: service_started
     networks:
       - notification-network
     restart: unless-stopped
@@ -81,6 +162,10 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      user-server:
+        condition: service_started
+      template-server:
+        condition: service_started
     networks:
       - notification-network
     restart: unless-stopped
@@ -91,4 +176,6 @@ networks:
 
 volumes:
   rabbitmq_data:
+  mongodb_data:
+  postgresql_data:
 
