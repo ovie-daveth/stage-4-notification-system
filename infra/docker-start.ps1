@@ -53,6 +53,11 @@ Write-Host "✅ Services started successfully!" -ForegroundColor Green
 Write-Host ""
 Write-Host "📝 Service URLs:" -ForegroundColor Cyan
 Write-Host "   - RabbitMQ Management: http://localhost:15672 (admin/admin123)"
+Write-Host "   - MongoDB: mongodb://localhost:27017"
+Write-Host "   - PostgreSQL: postgresql://localhost:5432"
+Write-Host "   - User Service: http://localhost:4001"
+Write-Host "   - Template Service: http://localhost:4003"
+Write-Host "   - Template Swagger: http://localhost:4003/docs"
 Write-Host "   - Email Service: http://localhost:4002"
 Write-Host "   - Email Swagger: http://localhost:4002/docs"
 Write-Host "   - Push Service: http://localhost:4004"
