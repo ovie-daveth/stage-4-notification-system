@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: notification-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - notification-network
+
+  email-server:
+    build:
+      context: ../Services/email-server
+      dockerfile: Dockerfile
+    container_name: notification-email-server
+    ports:
+      - "4002:4002"
+    environment:
+      NODE_ENV: production
+      PORT: 4002
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      RABBITMQ_URI: amqp://admin:admin123@rabbitmq:5672
+      RABBITMQ_EXCHANGE: notifications.direct
+      RABBITMQ_EMAIL_QUEUE: email.queue
+      RABBITMQ_DEAD_LETTER_QUEUE: failed.queue
+      RABBITMQ_PREFETCH: 5
+      USER_SERVICE_URL: ${USER_SERVICE_URL:-http://user-server:4001/api/v1}
+      USER_SERVICE_TIMEOUT_MS: 5000
+      TEMPLATE_SERVICE_URL: ${TEMPLATE_SERVICE_URL:-http://template-server:4003/api/v1}
+      TEMPLATE_SERVICE_TIMEOUT_MS: 5000
+      EMAIL_FROM: ${EMAIL_FROM:-no-reply@example.com}
+      EMAIL_PROVIDER: smtp
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - notification-network
+    restart: unless-stopped
+
+  push-server:
+    build:
+      context: ../Services/push-server
+      dockerfile: Dockerfile
+    container_name: notification-push-server
+    ports:
+      - "4004:4004"
+    environment:
+      NODE_ENV: production
+      PORT: 4004
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      RABBITMQ_URI: amqp://admin:admin123@rabbitmq:5672
+      RABBITMQ_EXCHANGE: notifications.direct
+      RABBITMQ_PUSH_QUEUE: push.queue
+      RABBITMQ_DEAD_LETTER_QUEUE: failed.queue
+      RABBITMQ_PREFETCH: 10
+      USER_SERVICE_URL: ${USER_SERVICE_URL:-http://user-server:4001/api/v1}
+      USER_SERVICE_TIMEOUT_MS: 5000
+      TEMPLATE_SERVICE_URL: ${TEMPLATE_SERVICE_URL:-http://template-server:4003/api/v1}
+      TEMPLATE_SERVICE_TIMEOUT_MS: 5000
+      PUSH_PROVIDER: fcm
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - notification-network
+    restart: unless-stopped
+
+networks:
+  notification-network:
+    driver: bridge
+
+volumes:
+  rabbitmq_data:
+

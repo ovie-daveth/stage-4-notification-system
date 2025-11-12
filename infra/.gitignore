@@ -1,0 +1,15 @@
+# Environment variables - DO NOT COMMIT
+.env
+.env.local
+.env.*.local
+
+# Docker override files
+docker-compose.override.yml
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
