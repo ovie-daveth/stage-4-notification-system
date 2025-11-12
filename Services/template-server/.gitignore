@@ -1,0 +1,21 @@
+# Python cache and build files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+
+# Virtual environment
+.venv/
+
+# Environment files
+.env
+.env.*
+
+# SQLite local DB
+template.db
+
+# VSCode / system files
+.vscode/
+.DS_Store
